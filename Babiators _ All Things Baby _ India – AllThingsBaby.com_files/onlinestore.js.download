@@ -1,0 +1,131 @@
+﻿var scripts = document.getElementsByTagName('script');
+
+function RontarAddToCartFunction(aId, prcId, prdId) {
+    rnt('add_shopping_cart_event', { advId: aId, priceId: prcId, productIds: prdId });
+}
+
+var myScript = null;
+for (iscript = 0; iscript < scripts.length; iscript++)
+{
+    varTestScript = scripts[iscript];
+    if ((varTestScript.src.lastIndexOf('onlinestore.js') > 0) & (varTestScript.src.lastIndexOf('rontar') > 0))
+    {
+        myScript = varTestScript;
+        break;
+    }
+}
+
+if (myScript != null)
+{
+    var pureUrl = location.protocol + '//' + location.host + location.pathname;
+
+    var queryString = myScript.src.replace(/^[^\?]+\??/, '');
+    var params = parseQuery(queryString);
+
+    var productRegEx = new RegExp('/products/.');
+    var checkoutRegEx = new RegExp('/checkouts/[a-z0-9]+/thank_you');
+
+    if (productRegEx.test(pureUrl))
+    {
+        jQuery.getJSON(pureUrl + '.json', function (data)
+        {
+            if (data != undefined)
+            {
+                var rontarProductId = data.product.id;
+
+                window.rnt = window.rnt || function () { (rnt.q = rnt.q || []).push(arguments) };
+                rnt('add_event', { advId: params['advId'] });
+                rnt('add_audience', { audienceId: params['advId'] + '_' + params['audienceId'], priceId: params['priceId'], productId: rontarProductId });
+                rnt('add_product_event', { advId: params['advId'], priceId: params['priceId'], productId: rontarProductId });
+
+                var rontarScript = document.createElement('script');
+                rontarScript.src = 'https://uaadcodedsp.rontar.com/rontar_aud_async.js';
+                myScript.parentNode.appendChild(rontarScript);
+
+                var cartFormRegEx = new RegExp('/cart/add');
+
+                for (i = 0; i < document.forms.length; i++) {
+                    var f = document.forms[i];
+                    
+                    if (cartFormRegEx.test(f.action))
+                    {
+                        for (j = 0; j < f.elements.length; j++) {
+                            var el = f.elements[j];
+                            if ((el.type == 'submit') || (el.type == 'button')) {
+                                el.addEventListener("click", function () {
+                                    RontarAddToCartFunction(params['advId'], params['priceId'], rontarProductId);
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    } else if (checkoutRegEx.test(pureUrl))
+    {
+        var convPixel = document.createElement('img');
+        convPixel.setAttribute('src', 'https://uaadcodedsp.rontar.com/shopifyredirection.axd?redirect=https://shopifyapp.rontar.com/conversion.axd&checkouttoken=' + Shopify.Checkout.token + '&domain=' + Shopify.shop + '&orderid=' + Shopify.checkout.order_id + '&totalprice=' + Shopify.checkout.total_price + '&currency=' + Shopify.checkout.currency);
+        convPixel.setAttribute('height', '1');
+        convPixel.setAttribute('width', '1');
+        myScript.parentNode.appendChild(convPixel);
+
+        var liIds = "";
+        
+        for (i = 0; i < Shopify.checkout.line_items.length; i++) {
+            var li = Shopify.checkout.line_items[i];            
+            liIds = liIds + li.product_id;
+            
+            if (i < Shopify.checkout.line_items.length - 1)
+                liIds = liIds + ",";
+        }
+
+        window.rnt = window.rnt || function () { (rnt.q = rnt.q || []).push(arguments) };
+        rnt('add_event', { advId: params['advId'] });
+        rnt('add_order_event', { advId: params['advId'], priceId: params['priceId'], productIds: liIds });
+
+        var rontarScript = document.createElement('script');
+        rontarScript.src = 'https://uaadcodedsp.rontar.com/rontar_aud_async.js';
+        myScript.parentNode.appendChild(rontarScript);
+    }
+    else
+    {
+        window.rnt = window.rnt || function () { (rnt.q = rnt.q || []).push(arguments) };
+
+        if (location.pathname == "/")
+            rnt('add_event', { advId: params['advId'], pageType:'home'});
+        else
+            rnt('add_event', { advId: params['advId'] });
+
+        rnt('add_audience', { audienceId: params['advId'] + '_' + params['audienceId'] });
+
+        var rontarScript = document.createElement('script');
+        rontarScript.src = 'https://uaadcodedsp.rontar.com/rontar_aud_async.js';
+        myScript.parentNode.appendChild(rontarScript);
+    }
+}
+
+function readCookie(name) {
+    var nameEQ = name + "=";
+    var ca = document.cookie.split(';');
+    for (var i = 0; i < ca.length; i++) {
+        var c = ca[i];
+        while (c.charAt(0) == ' ') c = c.substring(1, c.length);
+        if (c.indexOf(nameEQ) == 0) return c.substring(nameEQ.length, c.length);
+    }
+    return null;
+}
+
+function parseQuery(query) {
+    var Params = new Object();
+    if (!query) return Params; // return empty object
+    var Pairs = query.split(/[;&]/);
+    for (var i = 0; i < Pairs.length; i++) {
+        var KeyVal = Pairs[i].split('=');
+        if (!KeyVal || KeyVal.length != 2) continue;
+        var key = unescape(KeyVal[0]);
+        var val = unescape(KeyVal[1]);
+        val = val.replace(/\+/g, ' ');
+        Params[key] = val;
+    }
+    return Params;
+}
